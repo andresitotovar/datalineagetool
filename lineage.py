@@ -55,6 +55,21 @@ def visualize_lineage(lineage):
         dot.edge(parent, child)  # Add an edge from parent to child
     return dot
 
+# Function to log diagnostic information to a text file
+def log_diagnostics(base_dir, selected_table, lineage, table_file_map):
+    log_file = "lineage_diagnostics.log"
+    with open(log_file, "w") as log:
+        log.write("Diagnostics Log\n")
+        log.write(f"Base Directory: {base_dir}\n")
+        log.write(f"Selected Table: {selected_table}\n")
+        log.write("\nTable File Map:\n")
+        for table, path in table_file_map.items():
+            log.write(f"{table}: {path}\n")
+        log.write("\nLineage:\n")
+        for parent, child in lineage:
+            log.write(f"{parent} -> {child}\n")
+    return log_file
+
 # Streamlit GUI to interact with the tool
 def main():
     st.title("Table Lineage Tracker")  # Application title
@@ -76,6 +91,10 @@ def main():
         # Build lineage for the selected table
         visited = set()  # Track visited tables to avoid infinite loops
         lineage = build_lineage(selected_table, table_file_map, visited)
+
+        # Log diagnostics to a file
+        log_file = log_diagnostics(base_dir, selected_table, lineage, table_file_map)
+        st.info(f"Diagnostics log created: {log_file}")
 
         # Visualize the lineage graph
         st.subheader("Lineage Graph")
