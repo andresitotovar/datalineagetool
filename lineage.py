@@ -6,19 +6,21 @@ from graphviz import Digraph
 
 # Function to scan SQL files and map table names to file paths
 def scan_sql_files(base_dir):
-    # Dictionary to map table names to their respective SQL file paths
+    # Dictionary to map SQL-style table names to their full file paths
     table_file_map = {}
     for root, _, files in os.walk(base_dir):
         for file in files:
             if file.endswith('.sql'):  # Process only .sql files
                 file_path = os.path.join(root, file)
-                with open(file_path, 'r') as f:
-                    content = f.read().lower()  # Convert content to lowercase
-                    # Extract table name (e.g., g_table) from the file name
-                    match = re.search(r'\b(g_|s_|b_)[a-z0-9_]+', file.lower())
-                    if match:
-                        table_name = match.group(0)
-                        table_file_map[table_name] = file_path  # Map table name to file path
+                file_lower = file.lower()  # Convert file name to lowercase for consistency
+                # Extract the prefix, descriptive part, and base table name from the file name
+                match = re.match(r'(g_|s_|b_)(\w+?)_(.+)\.sql', file_lower)
+                if match:
+                    prefix = match.group(1)  # e.g., "s_"
+                    base_name = match.group(3)  # e.g., "market_table"
+                    # Reconstruct the SQL-style table name
+                    sql_table_name = f"{prefix}{base_name}"
+                    table_file_map[sql_table_name] = file_path  # Map SQL table name to file path
     return table_file_map
 
 # Function to parse SQL content and extract referenced table names
@@ -28,6 +30,7 @@ def extract_referenced_tables(sql_content):
     return set(matches)  # Return unique table names
 
 # Recursive function to build lineage of tables
+# Resolves table references in SQL files to their corresponding file paths
 def build_lineage(table_name, table_file_map, visited):
     if table_name in visited:  # Avoid infinite loops for cyclic dependencies
         return []
@@ -43,9 +46,11 @@ def build_lineage(table_name, table_file_map, visited):
         referenced_tables = extract_referenced_tables(content)
         lineage = []
         for ref_table in referenced_tables:
-            lineage.append((table_name, ref_table))  # Add relationship to lineage
-            # Recursively build lineage for the referenced table
-            lineage.extend(build_lineage(ref_table, table_file_map, visited))
+            # Ensure the referenced table exists in the map
+            if ref_table in table_file_map:
+                lineage.append((table_name, ref_table))  # Add relationship to lineage
+                # Recursively build lineage for the referenced table
+                lineage.extend(build_lineage(ref_table, table_file_map, visited))
         return lineage
 
 # Function to visualize the lineage as a directed graph using Graphviz
